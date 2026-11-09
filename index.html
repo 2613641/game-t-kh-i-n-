@@ -1,0 +1,696 @@
+!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creative Craft Challenge - Game Xây Tháp Sáng Tạo</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Fredoka', cursive, sans-serif;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background: linear-gradient(135deg, #a8edd9 0%, #fed6e3 100%);
+        }
+
+        /* Glassmorphic UI Panels */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Game Canvas Styling */
+        #gameCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            cursor: pointer;
+        }
+
+        /* Custom Button Animations & Styling */
+        .btn-creative {
+            background: linear-gradient(135deg, #ff7eb3 0%, #ff758c 100%);
+            box-shadow: 0 6px 0 #d6455d, 0 10px 15px rgba(255, 117, 140, 0.4);
+            transition: all 0.1s ease;
+        }
+
+        .btn-creative:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #d6455d, 0 12px 20px rgba(255, 117, 140, 0.5);
+        }
+
+        .btn-creative:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #d6455d, 0 4px 10px rgba(255, 117, 140, 0.4);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #ffe066 0%, #f59e0b 100%);
+            box-shadow: 0 6px 0 #b45309, 0 10px 15px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #b45309, 0 12px 20px rgba(245, 158, 11, 0.5);
+        }
+
+        .btn-gold:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #b45309, 0 4px 10px rgba(245, 158, 11, 0.4);
+        }
+
+        /* Pulse glow for bonus notifications */
+        @keyframes pulseGlow {
+            0% { transform: scale(0.9); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        .reward-popup {
+            animation: pulseGlow 1.2s forwards ease-out;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative flex flex-col items-center justify-center">
+
+    <!-- CANVAS GAME LAYER -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- TOP HUD (Điểm số, Tiền xu, Màn chơi) -->
+    <div class="absolute top-4 left-4 right-4 max-w-xl mx-auto flex justify-between items-center pointer-events-none z-10">
+        <!-- Score Card -->
+        <div class="glass-panel px-4 py-2 rounded-2xl flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-purple-500 text-white flex items-center justify-center text-xl shadow">
+                <i class="fa-solid fa-layer-group"></i>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Tầng Khối</p>
+                <p id="scoreDisplay" class="text-2xl font-bold text-gray-800">0</p>
+            </div>
+        </div>
+
+        <!-- Coins Card -->
+        <div class="glass-panel px-4 py-2 rounded-2xl flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-amber-400 text-white flex items-center justify-center text-xl shadow">
+                <i class="fa-solid fa-coins"></i>
+            </div>
+            <div>
+                <p class="text-xs uppercase tracking-wider text-gray-500 font-semibold">Xu Thưởng</p>
+                <p id="coinsDisplay" class="text-2xl font-bold text-amber-600">0</p>
+            </div>
+        </div>
+
+        <!-- Audio Toggle Button -->
+        <button id="soundBtn" class="pointer-events-auto glass-panel w-12 h-12 rounded-2xl flex items-center justify-center text-gray-700 hover:text-purple-600 transition shadow active:scale-95">
+            <i class="fa-solid fa-volume-high text-xl" id="soundIcon"></i>
+        </button>
+    </div>
+
+    <!-- IN-GAME INSTRUCTION TOAST -->
+    <div id="tapInstruction" class="absolute bottom-10 pointer-events-none z-10 text-center animate-bounce">
+        <span class="glass-panel px-6 py-3 rounded-full text-purple-700 font-bold text-sm sm:text-base shadow-lg border-2 border-purple-300">
+            <i class="fa-solid fa-hand-pointer mr-2"></i> Chạm / Click vào màn hình để thả khối!
+        </span>
+    </div>
+
+    <!-- REWARD / MILESTONE NOTIFICATION -->
+    <div id="rewardToast" class="absolute inset-0 flex items-center justify-center pointer-events-none z-20 hidden">
+        <div class="reward-popup glass-panel px-8 py-6 rounded-3xl text-center border-4 border-yellow-300 shadow-2xl bg-white/90">
+            <i class="fa-solid fa-crown text-5xl text-amber-400 mb-2 drop-shadow"></i>
+            <h3 id="rewardTitle" class="text-2xl font-bold text-purple-800">XUẤT SẮC!</h3>
+            <p id="rewardSubtitle" class="text-lg text-gray-600 font-semibold">+100 Xu Thưởng!</p>
+        </div>
+    </div>
+
+    <!-- START / MAIN MENU MODAL -->
+    <div id="startModal" class="absolute inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-30 p-4">
+        <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl text-center shadow-2xl relative border-4 border-white">
+            <div class="w-20 h-20 bg-gradient-to-tr from-pink-400 to-purple-500 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl shadow-lg mb-4 transform rotate-6">
+                <i class="fa-solid fa-cubes"></i>
+            </div>
+            <h1 class="text-3xl font-extrabold text-gray-800 mb-2 tracking-wide">CREATIVE CRAFT</h1>
+            <p class="text-purple-600 font-bold text-sm mb-6 uppercase tracking-widest">Thử Thách Xây Tháp Sáng Tạo</p>
+            
+            <div class="bg-purple-50 rounded-2xl p-4 text-left mb-6 space-y-2 text-sm text-gray-600 border border-purple-100">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-wand-magic-sparkles text-pink-500 text-base w-5"></i>
+                    <span><strong>Sáng tạo:</strong> Thả khối ghép tháp độc đáo.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-bolt text-amber-500 text-base w-5"></i>
+                    <span><strong>Thử thách:</strong> Né quả cầu năng lượng di chuyển.</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-gift text-emerald-500 text-base w-5"></i>
+                    <span><strong>Phần thưởng:</strong> Đạt mốc điểm mở khóa pháo hoa & Xu!</span>
+                </div>
+            </div>
+
+            <button id="startBtn" class="btn-creative w-full py-4 text-white font-extrabold text-xl rounded-2xl uppercase tracking-wider cursor-pointer">
+                <i class="fa-solid fa-play mr-2"></i> Bắt Đầu Chơi
+            </button>
+        </div>
+    </div>
+
+    <!-- GAME OVER / REWARD SUMMARY MODAL -->
+    <div id="gameOverModal" class="absolute inset-0 bg-slate-900/50 backdrop-blur-md flex items-center justify-center z-30 p-4 hidden">
+        <div class="glass-panel max-w-md w-full p-6 sm:p-8 rounded-3xl text-center shadow-2xl border-4 border-white">
+            <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full mx-auto flex items-center justify-center text-3xl mb-3">
+                <i class="fa-solid fa-burst"></i>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-1">Tháp Đã Đổ!</h2>
+            <p class="text-gray-500 text-sm mb-6">Bạn đã chiến đấu rất tốt!</p>
+
+            <!-- STATS BOARD -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-purple-50 p-4 rounded-2xl border border-purple-100">
+                    <p class="text-xs text-purple-600 font-bold uppercase">Tầng Tháp</p>
+                    <p id="finalScore" class="text-3xl font-black text-purple-800">0</p>
+                </div>
+                <div class="bg-amber-50 p-4 rounded-2xl border border-amber-100">
+                    <p class="text-xs text-amber-600 font-bold uppercase">Xu Thu Được</p>
+                    <p id="finalCoins" class="text-3xl font-black text-amber-600">0</p>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <button id="restartBtn" class="btn-creative w-full py-3.5 text-white font-bold text-lg rounded-2xl uppercase tracking-wider cursor-pointer">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Thử Lại Ngay
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GAME LOGIC -->
+    <script>
+        // --- SOUND ENGINE (Tone.js) ---
+        let audioEnabled = true;
+        let synth, coinSynth, failSynth;
+
+        function initAudio() {
+            try {
+                synth = new Tone.Synth({
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.1 }
+                }).toDestination();
+
+                coinSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 }
+                }).toDestination();
+
+                failSynth = new Tone.MembraneSynth().toDestination();
+            } catch (e) {
+                console.log("Audio setup deferred", e);
+            }
+        }
+
+        function playSound(type, pitch = "C5") {
+            if (!audioEnabled || !Tone || Tone.context.state !== 'running') return;
+            try {
+                if (type === 'place') synth.triggerAttackRelease(pitch, '8n');
+                if (type === 'coin') coinSynth.triggerAttackRelease(["E5", "G5", "C6"], '16n');
+                if (type === 'fail') failSynth.triggerAttackRelease("C2", "8n");
+            } catch (e) {}
+        }
+
+        // --- GAME ENGINE SETUP ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Color Palette for Creative Blocks
+        const blockColors = [
+            '#FF6B6B', '#4ECDC4', '#FFE66D', '#1A535C',
+            '#FF9F1C', '#9B5DE5', '#F15BB5', '#00BBF9', '#00F5D4'
+        ];
+
+        // State Variables
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let coins = 0;
+        let cameraY = 0;
+        let targetCameraY = 0;
+
+        // Block Physics & Stack Config
+        const BLOCK_HEIGHT = 45;
+        const INITIAL_WIDTH = 180;
+        let stack = [];
+        let activeBlock = null;
+        let obstacles = [];
+        let particles = [];
+        let fireworks = [];
+
+        // --- RESIZE CANVAS RESPONSIBLY ---
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            if (gameState === 'START') {
+                initGame();
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- PARTICLE SYSTEMS ---
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.size = Math.random() * 6 + 4;
+                this.alpha = 1;
+                this.gravity = 0.15;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.alpha -= 0.02;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - cameraY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FireworkParticle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 7 + 2;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.size = Math.random() * 4 + 2;
+                this.alpha = 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= 0.015;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y - cameraY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // --- OBSTACLE SYSTEM (Cầu Năng Lượng Thử Thách) ---
+        class EnergyOrb {
+            constructor(y) {
+                this.y = y;
+                this.radius = 16;
+                this.x = Math.random() < 0.5 ? -30 : canvas.width + 30;
+                this.speed = (Math.random() * 3 + 2.5) * (this.x < 0 ? 1 : -1);
+                this.pulse = 0;
+            }
+
+            update() {
+                this.x += this.speed;
+                this.pulse += 0.08;
+                // Bounce back when moving out of bounds
+                if (this.x > canvas.width + 40) this.speed *= -1;
+                if (this.x < -40) this.speed *= -1;
+            }
+
+            draw(ctx) {
+                const currentY = this.y - cameraY;
+                const r = this.radius + Math.sin(this.pulse) * 3;
+
+                ctx.save();
+                // Glowing effect
+                ctx.shadowColor = '#FF0055';
+                ctx.shadowBlur = 15;
+
+                // Orb gradient
+                let grad = ctx.createRadialGradient(this.x, currentY, 2, this.x, currentY, r);
+                grad.addColorStop(0, '#FFFFFF');
+                grad.addColorStop(0.4, '#FF2A6D');
+                grad.addColorStop(1, '#9A0036');
+
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(this.x, currentY, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // --- BLOCK SYSTEM ---
+        class Block {
+            constructor(x, y, width, height, color) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = color;
+            }
+
+            draw(ctx) {
+                const drawY = this.y - cameraY;
+                ctx.save();
+                ctx.fillStyle = this.color;
+                
+                // Draw Rounded Rectangle for Block
+                const r = 8;
+                ctx.beginPath();
+                ctx.roundRect(this.x, drawY, this.width, this.height, r);
+                ctx.fill();
+
+                // Bevel / Highlight lines for style
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.beginPath();
+                ctx.roundRect(this.x, drawY, this.width, 10, [r, r, 0, 0]);
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        class MovingBlock extends Block {
+            constructor(y, width, color, speed) {
+                super(0, y, width, BLOCK_HEIGHT, color);
+                this.speed = speed;
+                this.direction = 1;
+                this.x = 0;
+            }
+
+            update() {
+                this.x += this.speed * this.direction;
+                if (this.x + this.width >= canvas.width) {
+                    this.x = canvas.width - this.width;
+                    this.direction = -1;
+                } else if (this.x <= 0) {
+                    this.x = 0;
+                    this.direction = 1;
+                }
+            }
+        }
+
+        // --- INIT & RESET GAME ---
+        function initGame() {
+            score = 0;
+            coins = 0;
+            cameraY = 0;
+            targetCameraY = 0;
+            stack = [];
+            particles = [];
+            fireworks = [];
+            obstacles = [];
+
+            document.getElementById('scoreDisplay').innerText = score;
+            document.getElementById('coinsDisplay').innerText = coins;
+
+            // Base platform
+            const baseX = canvas.width / 2 - INITIAL_WIDTH / 2;
+            const baseY = canvas.height - 120;
+            stack.push(new Block(baseX, baseY, INITIAL_WIDTH, BLOCK_HEIGHT, '#4A5568'));
+
+            // Spawn first active moving block
+            spawnNextBlock();
+        }
+
+        function spawnNextBlock() {
+            const lastBlock = stack[stack.length - 1];
+            const newY = lastBlock.y - BLOCK_HEIGHT;
+            const color = blockColors[stack.length % blockColors.length];
+            
+            // Speed increases gradually with score
+            const baseSpeed = 3.5 + Math.min(score * 0.25, 8);
+            activeBlock = new MovingBlock(newY, lastBlock.width, color, baseSpeed);
+
+            // Spawn Obstacles periodically at higher scores
+            if (score >= 3 && Math.random() < 0.6) {
+                const orbY = newY - BLOCK_HEIGHT * (Math.floor(Math.random() * 2) + 1);
+                obstacles.push(new EnergyOrb(orbY));
+            }
+
+            // Adjust Camera smoothly
+            if (stack.length > 5) {
+                targetCameraY = (stack.length - 5) * BLOCK_HEIGHT;
+            }
+        }
+
+        // --- DROP BLOCK ACTION ---
+        function dropBlock() {
+            if (gameState !== 'PLAYING' || !activeBlock) return;
+
+            const prevBlock = stack[stack.length - 1];
+            const deltaX = activeBlock.x - prevBlock.x;
+            const overlap = prevBlock.width - Math.abs(deltaX);
+
+            if (overlap <= 0) {
+                // Completely Missed - Game Over
+                triggerGameOver();
+                return;
+            }
+
+            // Cut Block based on accuracy
+            let newWidth = overlap;
+            let newX = deltaX > 0 ? activeBlock.x : prevBlock.x;
+
+            // Perfect Alignment Bonus (Threshold 5px)
+            let isPerfect = false;
+            if (Math.abs(deltaX) < 5) {
+                newX = prevBlock.x;
+                newWidth = prevBlock.width;
+                isPerfect = true;
+            }
+
+            // Create Debris Particles for chopped off part
+            const choppedWidth = activeBlock.width - newWidth;
+            if (choppedWidth > 2) {
+                const chopX = deltaX > 0 ? newX + newWidth : activeBlock.x;
+                for (let i = 0; i < 15; i++) {
+                    particles.push(new Particle(chopX + Math.random() * choppedWidth, activeBlock.y, activeBlock.color));
+                }
+            }
+
+            // Place valid block into stack
+            const placedBlock = new Block(newX, activeBlock.y, newWidth, activeBlock.height, activeBlock.color);
+            stack.push(placedBlock);
+
+            // Audio & Score logic
+            score++;
+            document.getElementById('scoreDisplay').innerText = score;
+
+            // Calculate Sound Note Scale
+            const notes = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5", "D5", "E5"];
+            const noteIndex = (score - 1) % notes.length;
+            playSound('place', notes[noteIndex]);
+
+            // Milestone Reward System (Every 5 layers)
+            if (score % 5 === 0 || isPerfect) {
+                const bonusCoins = isPerfect ? 20 : 50;
+                coins += bonusCoins;
+                document.getElementById('coinsDisplay').innerText = coins;
+                playSound('coin');
+                showRewardToast(isPerfect ? "HOÀN HẢO!" : "MỐC PHẦN THƯỞNG!", `+${bonusCoins} Xu Thưởng!`);
+                spawnFireworks(placedBlock.x + placedBlock.width / 2, placedBlock.y);
+            }
+
+            spawnNextBlock();
+        }
+
+        // --- REWARD EFFECTS ---
+        function showRewardToast(title, subtitle) {
+            const toast = document.getElementById('rewardToast');
+            document.getElementById('rewardTitle').innerText = title;
+            document.getElementById('rewardSubtitle').innerText = subtitle;
+            toast.classList.remove('hidden');
+
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 1200);
+        }
+
+        function spawnFireworks(x, y) {
+            const colors = ['#FFD700', '#FF4500', '#00FF7F', '#1E90FF', '#FF1493'];
+            for (let i = 0; i < 40; i++) {
+                fireworks.push(new FireworkParticle(x, y, colors[Math.floor(Math.random() * colors.length)]));
+            }
+        }
+
+        // --- GAME OVER ---
+        function triggerGameOver() {
+            gameState = 'GAMEOVER';
+            playSound('fail');
+
+            document.getElementById('finalScore').innerText = score;
+            document.getElementById('finalCoins').innerText = coins;
+            document.getElementById('gameOverModal').classList.remove('hidden');
+        }
+
+        // --- MAIN GAME LOOP ---
+        function gameLoop() {
+            // Smooth Camera Interpolation
+            cameraY += (targetCameraY - cameraY) * 0.1;
+
+            // Clear Screen
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background Grid/Pattern
+            drawBackground();
+
+            // Render Stacked Blocks
+            for (let i = 0; i < stack.length; i++) {
+                stack[i].draw(ctx);
+            }
+
+            // Render Active Block & Check Obstacle Collisions
+            if (gameState === 'PLAYING' && activeBlock) {
+                activeBlock.update();
+                activeBlock.draw(ctx);
+
+                // Check collision with obstacles
+                for (let orb of obstacles) {
+                    orb.update();
+                    orb.draw(ctx);
+
+                    // AABB vs Circle Collision Check with Active Block
+                    const orbY = orb.y - cameraY;
+                    const blockY = activeBlock.y - cameraY;
+                    
+                    if (
+                        orb.x + orb.radius > activeBlock.x &&
+                        orb.x - orb.radius < activeBlock.x + activeBlock.width &&
+                        orbY + orb.radius > blockY &&
+                        orbY - orb.radius < blockY + activeBlock.height
+                    ) {
+                        // Hit energy orb!
+                        triggerGameOver();
+                    }
+                }
+            }
+
+            // Update & Render Debris Particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw(ctx);
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+
+            // Update & Render Fireworks
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].update();
+                fireworks[i].draw(ctx);
+                if (fireworks[i].alpha <= 0) fireworks.splice(i, 1);
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- BACKGROUND GRAPHICS ---
+        function drawBackground() {
+            // Cute animated clouds or subtle gradient grid
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+
+            const gridSize = 60;
+            const offsetY = (cameraY * 0.5) % gridSize;
+
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = -gridSize; y < canvas.height + gridSize; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y + offsetY);
+                ctx.lineTo(canvas.width, y + offsetY);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // --- USER INTERACTION EVENTS ---
+        function handleInput(e) {
+            // Prevent interaction if clicking on HUD buttons/modals
+            if (e.target.closest('button') || e.target.closest('#startModal') || e.target.closest('#gameOverModal')) {
+                return;
+            }
+
+            if (gameState === 'PLAYING') {
+                dropBlock();
+            }
+        }
+
+        window.addEventListener('pointerdown', handleInput);
+
+        // Keyboard Controls (Spacebar)
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameState === 'PLAYING') dropBlock();
+            }
+        });
+
+        // Button Controls
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (Tone && Tone.context.state !== 'running') {
+                Tone.start();
+            }
+            initAudio();
+            document.getElementById('startModal').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            document.getElementById('gameOverModal').classList.add('hidden');
+            gameState = 'PLAYING';
+            initGame();
+        });
+
+        // Audio Mute Toggle
+        document.getElementById('soundBtn').addEventListener('click', () => {
+            audioEnabled = !audioEnabled;
+            const soundIcon = document.getElementById('soundIcon');
+            if (audioEnabled) {
+                soundIcon.className = "fa-solid fa-volume-high text-xl text-purple-600";
+            } else {
+                soundIcon.className = "fa-solid fa-volume-xmark text-xl text-gray-400";
+            }
+        });
+
+        // --- STARTUP ---
+        window.onload = () => {
+            resizeCanvas();
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
